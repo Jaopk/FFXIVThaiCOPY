@@ -22,7 +22,11 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
 
-		<Content Include="../content/th/**/*.json">
+		<Content Include="../content/alignment.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+
+		<Content Include="../content/2.0/**/*.json;../content/2.x/**/*.json;../content/3.x/**/*.json;../content/4.x/**/*.json;../content/5.x/**/*.json;../content/6.x/**/*.json;../content/7.x/**/*.json">
 			<Link>content/%(RecursiveDir)%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>

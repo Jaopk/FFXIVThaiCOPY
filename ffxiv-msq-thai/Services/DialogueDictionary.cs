@@ -28,9 +28,83 @@ public class DialogueDictionary
 
         foreach (var file in Directory.EnumerateFiles(root, "*.json", SearchOption.AllDirectories))
         {
+            if (Path.GetFileName(file) == "alignment.json") continue;
             LoadIntoGlobalIndex(file);
         }
+
+        LoadAlignmentMap(root);
+
         _log.Information($"[ffxiv-msq-thai] Dictionary index ready — {_globalExactMatch.Count} sentences loaded.");
+    }
+
+    private void LoadAlignmentMap(string contentRoot)
+    {
+        var alignmentPath = Path.Combine(contentRoot, "alignment.json");
+        if (!File.Exists(alignmentPath)) return;
+
+        try
+        {
+            var alignmentJson = File.ReadAllText(alignmentPath);
+            var map = JsonSerializer.Deserialize<Dictionary<string, string>>(alignmentJson);
+            if (map == null) return;
+
+            int count = 0;
+            foreach (var pair in map)
+            {
+                var gameKey = pair.Key;
+                var transKey = pair.Value;
+
+                if (_globalExactMatch.TryGetValue(transKey, out var translation))
+                {
+                    if (_globalExactMatch.TryAdd(gameKey, translation))
+                    {
+                        count++;
+                    }
+                }
+            }
+            _log.Information($"[ffxiv-msq-thai] Loaded alignment.json: {count} phrase aliases mapped.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"[ffxiv-msq-thai] Failed to load alignment.json: {ex.Message}");
+        }
+    }
+
+    private static readonly Regex SlashRegex = new(@"\b(\w+)\s*/\s*(\w+)\b", RegexOptions.Compiled);
+
+    public static List<string> GetKeyVariants(string input)
+    {
+        var cleanInput = SeControlRegex.Replace(input, string.Empty).Replace("*", string.Empty);
+        var matches = SlashRegex.Matches(cleanInput);
+
+        var results = new List<string> { cleanInput };
+
+        foreach (Match match in matches)
+        {
+            var fullMatch = match.Value;
+            var left = match.Groups[1].Value;
+            var right = match.Groups[2].Value;
+
+            var nextResults = new List<string>();
+            foreach (var r in results)
+            {
+                nextResults.Add(r.Replace(fullMatch, left));
+                nextResults.Add(r.Replace(fullMatch, right));
+            }
+            results = nextResults;
+        }
+
+        var keys = new List<string>();
+        foreach (var r in results)
+        {
+            var key = ToPureAlphanumericKey(r);
+            if (!string.IsNullOrEmpty(key) && !keys.Contains(key))
+            {
+                keys.Add(key);
+            }
+        }
+
+        return keys;
     }
 
     private void LoadIntoGlobalIndex(string filePath)
@@ -45,9 +119,14 @@ public class DialogueDictionary
 
             if (string.IsNullOrWhiteSpace(enText) || string.IsNullOrWhiteSpace(thText)) continue;
 
-            var key = !string.IsNullOrEmpty(d.Key) ? d.Key : ToPureAlphanumericKey(enText);
+            // Generate keys (handling slash pronoun variations)
+            var keys = GetKeyVariants(enText);
+            if (!string.IsNullOrEmpty(d.Key) && !keys.Contains(d.Key))
+            {
+                keys.Add(d.Key);
+            }
 
-            if (!string.IsNullOrEmpty(key))
+            foreach (var key in keys)
             {
                 _globalExactMatch.TryAdd(key, thText);
             }
@@ -81,7 +160,14 @@ public class DialogueDictionary
                 sb.Append(char.ToLowerInvariant(c));
             }
         }
-        return sb.ToString();
+        
+        var key = sb.ToString();
+        key = key.Replace("forenamesurname", string.Empty)
+                 .Replace("forename", string.Empty)
+                 .Replace("surname", string.Empty)
+                 .Replace("playerplayer", string.Empty)
+                 .Replace("player", string.Empty);
+        return key;
     }
 
     private static readonly Regex MultiSpace = new(@" {2,}", RegexOptions.Compiled);
