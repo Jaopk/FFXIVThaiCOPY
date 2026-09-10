@@ -72,12 +72,22 @@ public class DialogueDictionary
 
     private static readonly Regex SlashRegex = new(@"\b(\w+)\s*/\s*(\w+)\b", RegexOptions.Compiled);
 
+    // ไฟล์ datamining ใส่ชื่อผู้พูดที่ยังไม่เปิดเผยไว้หน้าบรรทัดเป็น "(-Young Skyfarer-)"
+    // แต่เกมส่งมาเฉพาะตัวบทพูด ถ้าคีย์ยังติดชื่อไว้จะหาคำแปลไม่เจอ
+    private static readonly Regex SpeakerTagRegex = new(@"^\(-.+?-\)", RegexOptions.Compiled);
+
     public static List<string> GetKeyVariants(string input)
     {
         var cleanInput = SeControlRegex.Replace(input, string.Empty).Replace("*", string.Empty);
         var matches = SlashRegex.Matches(cleanInput);
 
         var results = new List<string> { cleanInput };
+
+        var withoutSpeaker = SpeakerTagRegex.Replace(cleanInput, string.Empty);
+        if (withoutSpeaker != cleanInput)
+        {
+            results.Add(withoutSpeaker);
+        }
 
         foreach (Match match in matches)
         {
