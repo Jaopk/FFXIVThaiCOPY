@@ -37,8 +37,15 @@
 		</Content>
 	</ItemGroup>
 
-	<Target Name="CopyZipToRelease" AfterTargets="Build;ZipPluginBundle">
-		<Copy SourceFiles="$(OutDir)ffxiv-msq-thai/latest.zip" DestinationFiles="$(MSBuildProjectDirectory)/../release/latest.zip" SkipUnchangedFiles="true" Condition="'$(Configuration)' == 'Release' And Exists('$(OutDir)ffxiv-msq-thai/latest.zip')" />
+	<!-- ต้องวิ่งหลัง DefaultDalamudPackagerRelease ซึ่งเป็นตัวที่สร้าง latest.zip จริง
+	     ของเดิมเขียน AfterTargets="Build;ZipPluginBundle" แต่ ZipPluginBundle ไม่มีอยู่จริง
+	     (DalamudPackager ตั้งชื่อ target ว่า DefaultDalamudPackagerRelease) จึงเหลือ hook
+	     ที่ Build อย่างเดียว และ target ในไฟล์โปรเจกต์วิ่งก่อน target ที่ import มาจาก NuGet
+	     ผลคือก๊อป zip ของบิลด์ครั้งก่อนไปทับ release/latest.zip เงียบ ๆ ทุกครั้ง -->
+	<Target Name="CopyZipToRelease" AfterTargets="DefaultDalamudPackagerRelease" Condition="'$(Configuration)' == 'Release'">
+		<!-- ถ้าหา zip ไม่เจอ ให้บิลด์ล้มไปเลย ดีกว่าปล่อยให้ release/latest.zip ค้างของเก่าไว้แล้วปล่อยออกไป -->
+		<Error Condition="!Exists('$(OutDir)$(AssemblyName)/latest.zip')" Text="ไม่พบ $(OutDir)$(AssemblyName)/latest.zip — DalamudPackager ไม่ได้สร้าง zip ให้ release/latest.zip จะเป็นของบิลด์เก่า" />
+		<Copy SourceFiles="$(OutDir)$(AssemblyName)/latest.zip" DestinationFiles="$(MSBuildProjectDirectory)/../release/latest.zip" SkipUnchangedFiles="false" />
 	</Target>
 
 </Project>
